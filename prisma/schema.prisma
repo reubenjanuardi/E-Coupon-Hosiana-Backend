@@ -1,0 +1,134 @@
+// ========================================
+// PRISMA SETUP
+// ========================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================================
+// ENUMS
+// ========================================
+enum OrderStatus {
+  pending_payment
+  pending_verification
+  verified
+  cancelled
+}
+
+enum CouponStatus {
+  valid
+  claimed
+  void
+}
+
+enum AsalPembeli {
+  GPIB
+  UMUM
+}
+
+// ========================================
+// CORE TRANSACTION MODELS
+// ========================================
+
+model Order {
+  orderId      String      @id @db.VarChar(64)
+  bookCount    Int
+  totalAmount  Int
+  uniqueCode   Int
+  payabyleAmount Int
+  status       OrderStatus @default(pending_payment)
+  createdAt    DateTime    @default(now())
+
+  customer     OrderCustomer?
+  payments     PaymentEvidence[]
+  couponBooks  CouponBook[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderCustomer {
+  orderId        String       @id @db.VarChar(64)
+  namaLengkap    String
+  nomorWhatsApp  String
+  asalPembeli    AsalPembeli
+
+  // Optional: hanya jika GPIB
+  wilayahId      Int?
+  gerejaId       Int?
+
+  order          Order        @relation(fields: [orderId], references: [orderId])
+  wilayah        wilayah_mupel?     @relation(fields: [wilayahId], references: [id])
+  gereja         gereja?      @relation(fields: [gerejaId], references: [id])
+}
+
+model PaymentEvidence {
+  id         String   @id @default(uuid()) @db.Uuid
+  orderId    String   @db.VarChar(64)
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+
+  order      Order    @relation(fields: [orderId], references: [orderId])
+
+  @@unique([orderId])
+}
+
+// ========================================
+// COUPON MODELS
+// ========================================
+
+model CouponBook {
+  bookCode       String    @id @db.VarChar(64)
+  orderId        String?   @db.VarChar(64)
+  assignedAt     DateTime?
+
+  lockedBy       String?
+  lockedAt       DateTime?
+  lockExpiresAt  DateTime?
+
+  order          Order?    @relation(fields: [orderId], references: [orderId])
+  coupons        Coupon[]
+
+  @@index([orderId])
+  @@index([lockedBy])
+  @@index([lockExpiresAt])
+}
+
+model Coupon {
+  couponCode String       @id @db.VarChar(64)
+  bookCode   String       @db.VarChar(64)
+  status     CouponStatus @default(valid)
+  claimedAt  DateTime?
+
+  couponBook CouponBook   @relation(fields: [bookCode], references: [bookCode])
+
+  @@index([status])
+}
+
+// ========================================
+// MASTER DATA: WILAYAH & GEREJA
+// ========================================
+
+model wilayah_mupel {
+  id            Int      @id @default(autoincrement())
+  nama_wilayah  String   @unique
+
+  gereja    gereja[]
+  customers OrderCustomer[]
+}
+
+model gereja {
+  id          Int      @id @default(autoincrement())
+  nama_gereja String
+  wilayah_id   Int
+
+  wilayah   wilayah_mupel @relation(fields: [wilayah_id], references: [id])
+  customers OrderCustomer[]
+
+  @@unique([nama_gereja, wilayah_id])
+}
