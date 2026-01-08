@@ -27,7 +27,7 @@ app.use(express.json());
 // Public routes
 app.use("/api/orders", ordersRouter);
 app.use("/api/payments", paymentsRouter);
-app.use("/api/verify", verificationRouter);
+app.use("/api/verification", verificationRouter); // Changed from /api/verify to /api/verification
 app.use("/api/public", churchesRoutes);
 app.use("/api/coupons", couponsRouter);
 
