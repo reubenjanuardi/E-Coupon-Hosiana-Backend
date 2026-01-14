@@ -15,7 +15,7 @@ async function main() {
   const books = [];
   for (let i = 1; i <= TOTAL_BOOKS; i++) {
     books.push({
-      bookCode: `BUKU-${pad(i)}`
+      bookCode: `BUKU-${pad(i, 4)}`
     });
   }
 
@@ -30,7 +30,7 @@ async function main() {
   let couponNumber = 1;
 
   for (let book = 1; book <= TOTAL_BOOKS; book++) {
-    const bookCode = `BUKU-${pad(book)}`;
+    const bookCode = `BUKU-${pad(book, 4)}`;
 
     for (let i = 0; i < COUPONS_PER_BOOK; i++) {
       coupons.push({
