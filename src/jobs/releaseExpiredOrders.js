@@ -2,18 +2,17 @@ import cron from "node-cron";
 import { prisma } from "../db/prisma.js";
 import { getNowInWIB } from "../utils/timezone.js";
 
-const PAYMENT_TIMEOUT_HOURS = 24;
-
 export function startReleaseExpiredOrdersJob() {
-  cron.schedule("*/10 * * * *", async () => {
+  // Run every minute to ensure timely cancellation
+  cron.schedule("* * * * *", async () => {
     console.log("⏱️ Checking expired orders...");
 
-    const expiredAt = new Date(Date.now() - PAYMENT_TIMEOUT_HOURS * 60 * 60 * 1000);
+    const now = new Date();
 
     const expiredOrders = await prisma.order.findMany({
       where: {
         status: "pending_payment",
-        createdAt: { lt: expiredAt },
+        expiresAt: { lt: now }, // Orders where expiresAt is in the past
       },
       select: { orderId: true },
     });
@@ -23,12 +22,15 @@ export function startReleaseExpiredOrdersJob() {
     const orderIds = expiredOrders.map((o) => o.orderId);
 
     await prisma.$transaction(async (tx) => {
-      // release books
+      // release books and clear all lock fields
       await tx.couponBook.updateMany({
         where: { orderId: { in: orderIds } },
         data: {
           orderId: null,
           assignedAt: null,
+          lockedBy: null,
+          lockedAt: null,
+          lockExpiresAt: null,
         },
       });
 
@@ -42,3 +44,4 @@ export function startReleaseExpiredOrdersJob() {
     console.log(`✅ Released ${orderIds.length} expired orders`);
   });
 }
+

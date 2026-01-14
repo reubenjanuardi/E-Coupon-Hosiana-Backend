@@ -6,6 +6,7 @@ import { nanoid } from "nanoid";
 import { getNowInWIB } from "../utils/timezone.js";
 
 const PRICE_PER_BOOK = 100000;
+const PAYMENT_TIMEOUT_MINUTES = 15;
 
 /**
  * POST /api/orders
@@ -48,6 +49,7 @@ export async function createOrder(req, res) {
       }
 
       // 2️⃣ Create order + customer
+      const expiresAt = new Date(Date.now() + PAYMENT_TIMEOUT_MINUTES * 60 * 1000);
       const createdOrder = await tx.order.create({
         data: {
           orderId,
@@ -56,6 +58,7 @@ export async function createOrder(req, res) {
           uniqueCode,
           payabyleAmount: payableAmount,
           status: "pending_payment",
+          expiresAt,
           customer: {
             create: {
               namaLengkap: customer.namaLengkap,
@@ -93,6 +96,7 @@ export async function createOrder(req, res) {
         totalAmount: order.totalAmount,
         uniqueCode: order.uniqueCode,
         payabyleAmount: order.payabyleAmount,
+        expiresAt: order.expiresAt,
         status: order.status,
         selectedBooks,
         customer: order.customer,
@@ -120,4 +124,48 @@ export async function getOrder(req, res) {
   });
 
   res.json({ message: "Order details", order });
+}
+
+export async function cancelOrder(req, res) {
+  try {
+    const { orderId } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      select: { status: true },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order tidak ditemukan" });
+    }
+
+    if (order.status !== "pending_payment") {
+      return res.status(400).json({ message: "Order tidak dapat dibatalkan" });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Release all coupon books associated with this order
+      await tx.couponBook.updateMany({
+        where: { orderId },
+        data: {
+          orderId: null,
+          assignedAt: null,
+          lockedBy: null,
+          lockedAt: null,
+          lockExpiresAt: null,
+        },
+      });
+
+      // Cancel the order
+      await tx.order.update({
+        where: { orderId },
+        data: { status: "cancelled" },
+      });
+    });
+
+    return res.json({ message: "Order berhasil dibatalkan" });
+  } catch (error) {
+    console.error("cancelOrder error:", error);
+    return res.status(500).json({ message: "Gagal membatalkan order" });
+  }
 }
