@@ -1,5 +1,5 @@
 // Verification Controller
-// Handles coupon code verification for both BOOK (BUKU-00001) and COUPON (KPN-00007) codes
+// Handles coupon code verification for both BOOK (BUKU-0001) and COUPON (KPN-00007) codes
 // This is a public, read-only endpoint with NO authentication required
 
 import { prisma } from "../db/prisma.js";
@@ -36,7 +36,7 @@ function maskOwnerInfo(name, phone) {
  * GET /api/verification/:code
  *
  * Accepts:
- * - BUKU-00001 (book code)
+ * - BUKU-0001 (book code)
  * - KPN-00007 (individual coupon code)
  *
  * Returns verification data with status and masked owner information
@@ -54,11 +54,11 @@ export async function verifyCoupon(req, res) {
     const isCouponCode = code.startsWith("KPN-");
 
     if (!isBookCode && !isCouponCode) {
-      return res.status(400).json({ error: "Invalid code format. Use BUKU-##### or KPN-#####" });
+      return res.status(400).json({ error: "Invalid code format. Use BUKU-#### or KPN-#####" });
     }
 
     if (isBookCode) {
-      // Verify Book Code (BUKU-00001)
+      // Verify Book Code (BUKU-0001)
       const book = await prisma.couponBook.findUnique({
         where: { bookCode: code },
         include: {
@@ -73,20 +73,27 @@ export async function verifyCoupon(req, res) {
       }
 
       if (!book.order || !book.order.customer) {
-        return res.status(404).json({ error: "Buku kupon ini belum terjual atau belum memiliki pemilik" });
+        return res.json({
+            type: "BOOK",
+            code: book.bookCode,
+            status: "available",
+            bookCode: book.bookCode,
+            owner: null,
+          });
       }
 
       const customer = book.order.customer;
       const maskedOwner = maskOwnerInfo(customer.namaLengkap, customer.nomorWhatsApp);
 
-      // CouponBook doesn't have status field, derive from order status
-      // If order is verified, book is valid (can be used for redemption)
-      const bookStatus = book.order.status === "verified" ? "valid" : "valid";
+      // Determine verification status:
+      // Valid: Order is verified (fully paid/approved)
+      // Pending: Order exists but not verified yet
+      const bookStatus = book.order.status === "verified" ? "valid" : "pending";
 
       return res.json({
         type: "BOOK",
         code: book.bookCode,
-        status: bookStatus, // "valid", "claimed", "void"
+        status: bookStatus, // "valid", "pending"
         bookCode: book.bookCode,
         owner: maskedOwner,
       });
@@ -110,16 +117,25 @@ export async function verifyCoupon(req, res) {
       }
 
       if (!coupon.couponBook || !coupon.couponBook.order || !coupon.couponBook.order.customer) {
-        return res.status(404).json({ error: "Kupon ini belum terjual atau belum memiliki pemilik" });
+        return res.json({
+            type: "COUPON",
+            code: coupon.couponCode,
+            status: "available",
+            bookCode: coupon.couponBook.bookCode,
+            owner: null,
+          });
       }
 
       const customer = coupon.couponBook.order.customer;
       const maskedOwner = maskOwnerInfo(customer.namaLengkap, customer.nomorWhatsApp);
 
+      // Determine status from Order status
+      const couponStatus = coupon.couponBook.order.status === "verified" ? "valid" : "pending";
+
       return res.json({
         type: "COUPON",
         code: coupon.couponCode,
-        status: coupon.status, // "valid", "claimed", "void"
+        status: couponStatus, // "valid", "pending"
         bookCode: coupon.couponBook.bookCode,
         owner: maskedOwner,
       });

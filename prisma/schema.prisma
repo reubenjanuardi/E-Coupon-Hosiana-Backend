@@ -36,13 +36,14 @@ enum AsalPembeli {
 // ========================================
 
 model Order {
-  orderId      String      @id @db.VarChar(64)
-  bookCount    Int
-  totalAmount  Int
-  uniqueCode   Int
+  orderId        String      @id @db.VarChar(64)
+  bookCount      Int
+  totalAmount    Int
+  uniqueCode     Int
   payabyleAmount Int
-  status       OrderStatus @default(pending_payment)
-  createdAt    DateTime    @default(now())
+  status         OrderStatus @default(pending_payment)
+  createdAt      DateTime    @default(now())
+  expiresAt      DateTime?   // Payment deadline for pending orders
 
   customer     OrderCustomer?
   payments     PaymentEvidence[]
@@ -50,6 +51,7 @@ model Order {
 
   @@index([status])
   @@index([createdAt])
+  @@index([expiresAt])
 }
 
 model OrderCustomer {
