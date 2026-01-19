@@ -56,10 +56,15 @@ app.use(
     },
     credentials: true, // Required for cookies
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
     exposedHeaders: ["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset"],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
   })
 );
+
+// Handle preflight requests explicitly
+app.options('*', cors());
 app.use(express.json());
 app.use(cookieParser());
 
