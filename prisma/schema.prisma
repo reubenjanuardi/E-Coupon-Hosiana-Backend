@@ -134,3 +134,21 @@ model gereja {
 
   @@unique([nama_gereja, wilayah_id])
 }
+
+// ========================================
+// AUTHENTICATION MODELS
+// ========================================
+
+model Admin {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+}
+
+model TokenBlacklist {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  expiresAt DateTime
+
+  @@index([token])
+}
