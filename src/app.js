@@ -14,15 +14,56 @@ import { authenticateToken } from "./middlewares/auth.middleware.js";
 
 const app = express();
 
-// Security Headers
-app.use(helmet());
+// CORS configuration - MUST BE FIRST to handle preflight requests
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim().replace(/\/$/, "")) // Remove trailing slash
+  : ["*"]; // Default to all origins in development
 
-// Global Rate Limiter
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman, or same-origin)
+    if (!origin) return callback(null, true);
+
+    // If allowedOrigins includes '*', allow all origins
+    if (allowedOrigins.includes("*")) return callback(null, true);
+
+    // Check if the origin is in the allowed list
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true, // Required for cookies
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+  exposedHeaders: ["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset"],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly BEFORE other middleware
+app.options('*', cors(corsOptions));
+
+// Security Headers (after CORS)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Body parsing
+app.use(express.json());
+app.use(cookieParser());
+
+// Global Rate Limiter - Skip OPTIONS requests (preflight)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: (req) => req.method === 'OPTIONS', // Skip rate limiting for preflight requests
 });
 app.use(limiter);
 
@@ -31,42 +72,8 @@ export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // Limit each IP to 5 requests per windowMs
   message: "Too many login attempts from this IP, please try again after 15 minutes",
+  skip: (req) => req.method === 'OPTIONS', // Skip rate limiting for preflight requests
 });
-
-// CORS configuration based on environment
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",").map((origin) => origin.trim().replace(/\/$/, "")) // Remove trailing slash
-  : ["*"]; // Default to all origins in development
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, Postman, or same-origin)
-      if (!origin) return callback(null, true);
-
-      // If allowedOrigins includes '*', allow all origins
-      if (allowedOrigins.includes("*")) return callback(null, true);
-
-      // Check if the origin is in the allowed list
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true, // Required for cookies
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
-    exposedHeaders: ["RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset"],
-    preflightContinue: false,
-    optionsSuccessStatus: 204
-  })
-);
-
-// Handle preflight requests explicitly
-app.options('*', cors());
-app.use(express.json());
-app.use(cookieParser());
 
 // Health Check
 app.get("/", (req, res) => {
