@@ -63,6 +63,11 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
+// Health Check
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
+
 // Auth routes (Apply stricter limit to login)
 app.use("/api/auth/login", loginLimiter); // Apply only to login
 app.use("/api/auth", authRouter);
