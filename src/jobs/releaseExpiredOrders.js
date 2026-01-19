@@ -8,11 +8,13 @@ export function startReleaseExpiredOrdersJob() {
     console.log("⏱️ Checking expired orders...");
 
     const now = new Date();
+    const expiryTime = 24 * 60 * 60 * 1000; // 24 Hours
+    const cutoffDate = new Date(now.getTime() - expiryTime);
 
     const expiredOrders = await prisma.order.findMany({
       where: {
         status: "pending_payment",
-        expiresAt: { lt: now }, // Orders where expiresAt is in the past
+        createdAt: { lt: cutoffDate },
       },
       select: { orderId: true },
     });
