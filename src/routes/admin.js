@@ -4,7 +4,8 @@ import {
     getOrderById,
     verifyOrder,
     rejectOrder,
-    getDashboardStats
+    getDashboardStats,
+    mergeOrderPdfs
 } from '../controllers/admin.controller.js';
 
 const router = express.Router();
@@ -23,5 +24,8 @@ router.post('/orders/:orderId/verify', verifyOrder);
 
 // POST /api/admin/orders/:orderId/reject
 router.post('/orders/:orderId/reject', rejectOrder);
+
+// POST /api/admin/orders/:orderId/merge-pdf
+router.post('/orders/:orderId/merge-pdf', mergeOrderPdfs);
 
 export default router;

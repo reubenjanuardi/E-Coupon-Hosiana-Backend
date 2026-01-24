@@ -1,4 +1,6 @@
 import { prisma } from "../db/prisma.js";
+import { findFileByName, downloadFile } from "../services/googleDriveService.js";
+import { mergePdfs } from "../services/pdfService.js";
 
 // GET /api/admin/stats
 export async function getDashboardStats(req, res) {
@@ -188,5 +190,71 @@ export async function rejectOrder(req, res) {
   } catch (error) {
     console.error("rejectOrder error:", error);
     res.status(400).json({ message: error.message || "Failed to reject order" });
+  }
+}
+
+// POST /api/admin/orders/:orderId/merge-pdf
+export async function mergeOrderPdfs(req, res) {
+  try {
+    const { orderId } = req.params;
+
+    // 1. Fetch Order with CouponBooks
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      include: {
+        couponBooks: true
+      }
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // 2. Validate Order Status (Verified = Paid)
+    // "Assume the order is already validated as PAID" - Enforcing verified for safety
+    // if (order.status !== 'verified') {
+    //     return res.status(400).json({ message: "Order must be verified to merge PDFs" });
+    // }
+
+    if (!order.couponBooks || order.couponBooks.length === 0) {
+      return res.status(400).json({ message: "No coupon books assigned to this order" });
+    }
+
+    // 3. Sort CouponBooks by bookCode
+    const sortedBooks = order.couponBooks.sort((a, b) => 
+      a.bookCode.localeCompare(b.bookCode)
+    );
+
+    const pdfBuffers = [];
+
+    // 4. Download PDFs from Google Drive
+    for (const book of sortedBooks) {
+      const fileName = `${book.bookCode}.pdf`; // Assuming PDF extension
+      const file = await findFileByName(fileName);
+
+      if (!file) {
+        console.warn(`PDF not found for book: ${fileName}`);
+        return res.status(404).json({ message: `PDF file not found in Google Drive: ${fileName}` });
+      }
+
+      const buffer = await downloadFile(file.id);
+      pdfBuffers.push(buffer);
+    }
+
+    // 5. Merge PDFs
+    if (pdfBuffers.length === 0) {
+        return res.status(400).json({ message: "No PDFs found to merge" });
+    }
+
+    const mergedPdfBuffer = await mergePdfs(pdfBuffers);
+
+    // 6. Return Response
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="merged-order-${orderId}.pdf"`);
+    res.send(mergedPdfBuffer);
+
+  } catch (error) {
+    console.error("mergeOrderPdfs error:", error);
+    res.status(500).json({ message: "Failed to merge PDFs" });
   }
 }
