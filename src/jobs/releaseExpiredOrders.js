@@ -8,14 +8,12 @@ export function startReleaseExpiredOrdersJob() {
     try {
       console.log("⏱️ Checking expired orders...");
 
-      const now = new Date();
-      const expiryTime = 24 * 60 * 60 * 1000; // 24 Hours
-      const cutoffDate = new Date(now.getTime() - expiryTime);
+      const now = getNowInWIB();
 
       const expiredOrders = await prisma.order.findMany({
         where: {
           status: "pending_payment",
-          createdAt: { lt: cutoffDate },
+          expiresAt: { lt: now },
         },
         select: { orderId: true },
       });
@@ -53,7 +51,6 @@ export function startReleaseExpiredOrdersJob() {
       // Don't throw - let the cron job continue
     }
   });
-  
+
   console.log("🔄 Release expired orders job started");
 }
-
