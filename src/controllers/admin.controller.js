@@ -15,11 +15,11 @@ export async function getDashboardStats(req, res) {
       prisma.couponBook.count({
         where: { orderId: null }
       }),
-      // 2. Sold Books (Books assigned to orders that are Verified)
+      // 2. Sold Books (Books assigned to orders that are Verified, Merged, or Sent)
       prisma.couponBook.count({
         where: {
           order: {
-            status: 'verified'
+            status: { in: ['verified', 'MERGED', 'SENT'] }
           }
         }
       }),
@@ -212,9 +212,9 @@ export async function mergeOrderPdfs(req, res) {
 
     // 2. Validate Order Status (Verified = Paid)
     // "Assume the order is already validated as PAID" - Enforcing verified for safety
-    // if (order.status !== 'verified') {
-    //     return res.status(400).json({ message: "Order must be verified to merge PDFs" });
-    // }
+    if (order.status !== 'verified') {
+      return res.status(400).json({ message: "Order must be verified to merge PDFs" });
+    }
 
     if (!order.couponBooks || order.couponBooks.length === 0) {
       return res.status(400).json({ message: "No coupon books assigned to this order" });
@@ -248,7 +248,16 @@ export async function mergeOrderPdfs(req, res) {
 
     const mergedPdfBuffer = await mergePdfs(pdfBuffers);
 
-    // 6. Return Response
+    // 6. Update Order Status (NEW)
+    await prisma.order.update({
+      where: { orderId },
+      data: {
+        status: 'MERGED',
+        mergedAt: new Date()
+      }
+    });
+
+    // 7. Return Response
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="merged-order-${orderId}.pdf"`);
     res.send(mergedPdfBuffer);
@@ -256,5 +265,89 @@ export async function mergeOrderPdfs(req, res) {
   } catch (error) {
     console.error("mergeOrderPdfs error:", error);
     res.status(500).json({ message: "Failed to merge PDFs" });
+  }
+}
+
+// POST /api/admin/orders/:orderId/mark-sent
+export async function markOrderSent(req, res) {
+  try {
+    const { orderId } = req.params;
+
+    const order = await prisma.order.findUnique({ where: { orderId } });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // Ensure strict flow: MERGED -> SENT
+    if (order.status !== 'MERGED') {
+      return res.status(400).json({ message: "Order must be in MERGED status to be marked as SENT" });
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { orderId },
+      data: {
+        status: 'SENT',
+        sentAt: new Date()
+      }
+    });
+
+    res.json({ message: "Order marked as SENT", data: updatedOrder });
+  } catch (error) {
+    console.error("markOrderSent error:", error);
+    res.status(500).json({ message: "Failed to mark order as sent" });
+  }
+}
+
+// GET /api/admin/orders/:orderId/whatsapp-message
+export async function getWhatsAppMessage(req, res) {
+  try {
+    const { orderId } = req.params;
+
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      include: {
+        customer: {
+          include: {
+            gereja: true,
+            wilayah: true
+          }
+        },
+        couponBooks: true
+      }
+    });
+
+    if (!order) return res.status(404).json({ message: "Order not found" });
+    if (!order.customer) return res.status(404).json({ message: "Customer data missing" });
+
+    const customer = order.customer;
+    const books = order.couponBooks || [];
+    
+    // Sort books
+    const sortedBooks = books.sort((a, b) => a.bookCode.localeCompare(b.bookCode));
+    const bookCodes = sortedBooks.map(b => b.bookCode).join(', ');
+    const count = sortedBooks.length;
+
+    // Construct Message
+    // You can customize this template
+    const message = `Halo ${customer.namaLengkap},
+
+Terima kasih telah berpartisipasi dalam E-Coupon.
+Berikut adalah E-Coupon/Buku Kupon digital Anda:
+
+Order ID: ${order.orderId}
+Jumlah Buku: ${count}
+Kode Buku: ${bookCodes || '-'}
+
+Silakan dicek lampiran PDF berikut. 
+Tuhan memberkati.`;
+
+    res.json({
+      data: {
+        phoneNumber: customer.nomorWhatsApp, // Frontend can sanitize this if needed
+        message: message
+      }
+    });
+
+  } catch (error) {
+    console.error("getWhatsAppMessage error:", error);
+    res.status(500).json({ message: "Failed to generate WhatsApp message" });
   }
 }

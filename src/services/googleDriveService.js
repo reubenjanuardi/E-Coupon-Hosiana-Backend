@@ -5,14 +5,33 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to the service account key file
-const KEY_FILE_PATH = path.join(__dirname, '../../config/google-service-account.json');
-
 // Initialize GoogleAuth
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEY_FILE_PATH,
-  scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-});
+let auth;
+try {
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    
+    // Fix: Replace literal \n with actual newlines if they exist (common issue with env vars)
+    if (credentials.private_key) {
+      credentials.private_key = credentials.private_key.split(String.fromCharCode(92) + 'n').join('\n');
+    }
+
+    auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+  } else {
+    // Fallback path if env is invalid or missing (though checking it is preferred)
+    const KEY_FILE_PATH = path.join(__dirname, '../../config/google-service-account.json');
+    auth = new google.auth.GoogleAuth({
+      keyFile: KEY_FILE_PATH,
+      scopes: ['https://www.googleapis.com/auth/drive.readonly'],
+    });
+  }
+} catch (error) {
+  console.error("Failed to initialize Google Auth from environment:", error);
+  // Optional: throw or handle
+}
 
 // Initialize Google Drive API
 const drive = google.drive({ version: 'v3', auth });

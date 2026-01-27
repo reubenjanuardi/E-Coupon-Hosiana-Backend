@@ -18,6 +18,8 @@ enum OrderStatus {
   pending_payment
   pending_verification
   verified
+  MERGED
+  SENT
   cancelled
 }
 
@@ -45,6 +47,8 @@ model Order {
   status         OrderStatus @default(pending_payment)
   createdAt      DateTime    @default(now())
   expiresAt      DateTime?   // Payment deadline for pending orders
+  mergedAt       DateTime?
+  sentAt         DateTime?
 
   customer     OrderCustomer?
   payments     PaymentEvidence[]
