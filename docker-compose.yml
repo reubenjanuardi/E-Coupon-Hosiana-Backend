@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      # Ensure DATABASE_URL and other env vars are set. 
+      # You can create a .env.docker file or pass them from host.
+      # For now, we reuse the .env file if mapped or copied.
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 128M

@@ -219,7 +219,7 @@ export async function lockCouponBooksBulk(req, res) {
       return res.status(400).json({ error: "sessionId and bookCodes array are required" });
     }
 
-    const lockExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const lockExpiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
     const now = getNowInWIB();
 
     // Check availability
