@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { getNowInWIB } from "../utils/timezone.js";
 
 const PRICE_PER_BOOK = 100000;
-const PAYMENT_TIMEOUT_MINUTES = 15;
+const PAYMENT_TIMEOUT_MINUTES = 30;
 
 /**
  * POST /api/orders
@@ -57,8 +57,10 @@ export async function createOrder(req, res) {
           totalAmount: baseAmount,
           uniqueCode,
           payabyleAmount: payableAmount,
+          payabyleAmount: payableAmount,
           status: "pending_payment",
           expiresAt,
+          paymentToken: nanoid(32),
           customer: {
             create: {
               namaLengkap: customer.namaLengkap,
@@ -96,8 +98,10 @@ export async function createOrder(req, res) {
         totalAmount: order.totalAmount,
         uniqueCode: order.uniqueCode,
         payabyleAmount: order.payabyleAmount,
+        payabyleAmount: order.payabyleAmount,
         expiresAt: order.expiresAt,
         status: order.status,
+        paymentToken: order.paymentToken,
         selectedBooks,
         customer: order.customer,
       },
@@ -117,13 +121,28 @@ function generateUniqueCode() {
 
 export async function getOrder(req, res) {
   const { orderId } = req.params;
-  // TODO: Fetch order details from database using Prisma
-  const order = await prisma.order.findUnique({
-    where: { orderId },
-    include: { customer: true },
-  });
+  const { token } = req.query; // Expect token from query string
 
-  res.json({ message: "Order details", order });
+  try {
+    const order = await prisma.order.findUnique({
+      where: { orderId },
+      include: { customer: true },
+    });
+
+    if (!order) {
+      return res.status(404).json({ message: "Order tidak ditemukan" });
+    }
+
+    // Security Check: If order has a paymentToken, require it to match
+    if (order.paymentToken && order.paymentToken !== token) {
+      return res.status(403).json({ message: "Akses ditolak. Token pembayaran tidak valid." });
+    }
+
+    res.json({ message: "Order details", order });
+  } catch (error) {
+    console.error("getOrder error:", error);
+    res.status(500).json({ message: "Gagal memuat data order" });
+  }
 }
 
 export async function cancelOrder(req, res) {

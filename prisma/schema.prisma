@@ -49,6 +49,7 @@ model Order {
   expiresAt      DateTime?   // Payment deadline for pending orders
   mergedAt       DateTime?
   sentAt         DateTime?
+  paymentToken   String?     @db.VarChar(64)
 
   customer     OrderCustomer?
   payments     PaymentEvidence[]
