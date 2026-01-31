@@ -73,6 +73,9 @@ model OrderCustomer {
   order          Order        @relation(fields: [orderId], references: [orderId])
   wilayah        wilayah_mupel?     @relation(fields: [wilayahId], references: [id])
   gereja         gereja?      @relation(fields: [gerejaId], references: [id])
+
+  @@index([namaLengkap])
+  @@index([nomorWhatsApp])
 }
 
 model PaymentEvidence {

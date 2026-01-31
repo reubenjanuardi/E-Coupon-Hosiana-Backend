@@ -7,7 +7,7 @@ export async function getDashboardStats(req, res) {
   try {
     const [
       availableBooks,
-      soldBooks,
+      soldBooksAgg,
       pendingVerificationOrders,
       pendingPaymentOrders
     ] = await prisma.$transaction([
@@ -15,12 +15,12 @@ export async function getDashboardStats(req, res) {
       prisma.couponBook.count({
         where: { orderId: null }
       }),
-      // 2. Sold Books (Books assigned to orders that are Verified, Merged, or Sent)
-      prisma.couponBook.count({
+      // 2. Sold Books (Sum of bookCount from orders that are Verified, Merged, or Sent)
+      // OPTIMIZATION: Use aggregate on Order table instead of counting CouponBooks with join
+      prisma.order.aggregate({
+        _sum: { bookCount: true },
         where: {
-          order: {
-            status: { in: ['verified', 'MERGED', 'SENT'] }
-          }
+          status: { in: ['verified', 'MERGED', 'SENT'] }
         }
       }),
       // 3. Pending Verification Orders
@@ -36,7 +36,7 @@ export async function getDashboardStats(req, res) {
     res.json({
       data: {
         availableBooks,
-        soldBooks,
+        soldBooks: soldBooksAgg._sum.bookCount || 0, // Handle null result if no orders match
         pendingVerificationOrders,
         pendingPaymentOrders
       }
