@@ -10,7 +10,7 @@ export async function getDashboardStats(req, res) {
       soldBooksAgg,
       pendingVerificationOrders,
       pendingPaymentOrders
-    ] = await prisma.$transaction([
+    ] = await Promise.all([
       // 1. Available Books (not assigned to any order)
       prisma.couponBook.count({
         where: { orderId: null }
@@ -69,7 +69,7 @@ export async function getAllOrders(req, res) {
       ];
     }
 
-    const [orders, total] = await prisma.$transaction([
+    const [orders, total] = await Promise.all([
       prisma.order.findMany({
         where,
         skip,
