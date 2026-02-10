@@ -336,8 +336,7 @@ Order ID: ${order.orderId}
 Jumlah Buku: ${count}
 Kode Buku: ${bookCodes || '-'}
 
-Silakan dicek lampiran PDF berikut. 
-Tuhan memberkati.`;
+Silakan dicek lampiran PDF berikut.`;
 
     res.json({
       data: {
