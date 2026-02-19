@@ -7,8 +7,12 @@ import {
     getDashboardStats,
     mergeOrderPdfs,
     markOrderSent, 
-    getWhatsAppMessage
+    getWhatsAppMessage,
+    createOrder,
+    updateOrder,
+    deleteOrder
 } from '../controllers/admin.controller.js';
+import { requireSuperAdmin } from '../middlewares/role.middleware.js';
 
 const router = express.Router();
 
@@ -18,8 +22,17 @@ router.get('/stats', getDashboardStats);
 // GET /api/admin/orders
 router.get('/orders', getAllOrders);
 
+// POST /api/admin/orders (Superadmin only)
+router.post('/orders', requireSuperAdmin, createOrder);
+
 // GET /api/admin/orders/:orderId
 router.get('/orders/:orderId', getOrderById);
+
+// PUT /api/admin/orders/:orderId (Superadmin only)
+router.put('/orders/:orderId', requireSuperAdmin, updateOrder);
+
+// DELETE /api/admin/orders/:orderId (Superadmin only)
+router.delete('/orders/:orderId', requireSuperAdmin, deleteOrder);
 
 // POST /api/admin/orders/:orderId/verify
 router.post('/orders/:orderId/verify', verifyOrder);

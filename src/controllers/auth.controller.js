@@ -26,7 +26,7 @@ export async function login(req, res) {
 
         // 3. Generate Token
         const token = jwt.sign(
-            { id: user.id, username: user.username },
+            { id: user.id, username: user.username, role: user.role }, // Include role
             JWT_SECRET,
             { expiresIn: TOKEN_EXPIRY }
         );
@@ -39,7 +39,7 @@ export async function login(req, res) {
             maxAge: 24 * 60 * 60 * 1000, // 24 hours
         });
 
-        res.json({ message: "Login successful", user: { username: user.username } });
+        res.json({ message: "Login successful", user: { username: user.username, role: user.role } });
     } catch (error) {
         console.error("Login error:", error);
         res.status(500).json({ message: "Login failed" });

@@ -149,9 +149,15 @@ model gereja {
 // ========================================
 
 model Admin {
-  id       Int    @id @default(autoincrement())
-  username String @unique
+  id       Int       @id @default(autoincrement())
+  username String    @unique
   password String
+  role     AdminRole @default(admin)
+}
+
+enum AdminRole {
+  admin
+  superadmin
 }
 
 model TokenBlacklist {
