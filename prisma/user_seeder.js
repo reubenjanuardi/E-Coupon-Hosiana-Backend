@@ -32,7 +32,7 @@ async function main() {
 
     // Create superadmin
     const superadminUsername = "superadmin";
-    const superadminPassword = "superpassword123"; // You should probably change this or load from env
+    const superadminPassword = "gpibhosianajaya2026";
 
     const existingSuperadmin = await prisma.admin.findUnique({
         where: { username: superadminUsername },
