@@ -438,6 +438,10 @@ export async function updateOrder(req, res) {
     if (customerName) customerDataToUpdate.namaLengkap = customerName;
     if (customerWhatsApp) customerDataToUpdate.nomorWhatsApp = customerWhatsApp;
 
+    if (req.body.isChurchOrder !== undefined) {
+        dataToUpdate.isChurchOrder = req.body.isChurchOrder;
+    }
+
     await prisma.order.update({
         where: { orderId },
         data: {
@@ -452,6 +456,26 @@ export async function updateOrder(req, res) {
   } catch (error) {
     console.error("updateOrder error:", error);
     res.status(500).json({ message: "Failed to update order" });
+  }
+}
+
+// PATCH /api/admin/orders/:orderId/toggle-church
+export async function toggleChurchOrder(req, res) {
+  try {
+    const { orderId } = req.params;
+
+    const order = await prisma.order.findUnique({ where: { orderId } });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    const updatedOrder = await prisma.order.update({
+      where: { orderId },
+      data: { isChurchOrder: !order.isChurchOrder }
+    });
+
+    res.json({ message: "Order church status toggled", data: updatedOrder });
+  } catch (error) {
+    console.error("toggleChurchOrder error:", error);
+    res.status(500).json({ message: "Failed to toggle church order status" });
   }
 }
 

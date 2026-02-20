@@ -10,7 +10,8 @@ import {
     getWhatsAppMessage,
     createOrder,
     updateOrder,
-    deleteOrder
+    deleteOrder,
+    toggleChurchOrder
 } from '../controllers/admin.controller.js';
 import { requireSuperAdmin } from '../middlewares/role.middleware.js';
 
@@ -33,6 +34,9 @@ router.put('/orders/:orderId', requireSuperAdmin, updateOrder);
 
 // DELETE /api/admin/orders/:orderId (Superadmin only)
 router.delete('/orders/:orderId', requireSuperAdmin, deleteOrder);
+
+// PATCH /api/admin/orders/:orderId/toggle-church (Basic Admin allowed)
+router.patch('/orders/:orderId/toggle-church', toggleChurchOrder);
 
 // POST /api/admin/orders/:orderId/verify
 router.post('/orders/:orderId/verify', verifyOrder);

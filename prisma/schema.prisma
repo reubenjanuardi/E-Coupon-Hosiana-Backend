@@ -50,6 +50,7 @@ model Order {
   mergedAt       DateTime?
   sentAt         DateTime?
   paymentToken   String?     @db.VarChar(64)
+  isChurchOrder  Boolean     @default(false)
 
   customer     OrderCustomer?
   payments     PaymentEvidence[]
