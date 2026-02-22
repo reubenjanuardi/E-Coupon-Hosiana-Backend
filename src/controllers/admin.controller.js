@@ -401,7 +401,7 @@ export async function createOrder(req, res) {
                 totalAmount: parseInt(totalAmount),
                 uniqueCode: parseInt(uniqueCode) || 0,
                 payabyleAmount: parseInt(payabyleAmount),
-                status: 'pending_payment',
+                status: 'verified', // Admin-created orders are immediately verified
                 customer: {
                     create: {
                         namaLengkap: customerName,
