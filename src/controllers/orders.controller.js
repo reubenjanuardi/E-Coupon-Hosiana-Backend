@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { getNowInWIB } from "../utils/timezone.js";
 
 const PRICE_PER_BOOK = 100000;
-const PAYMENT_TIMEOUT_MINUTES = 30;
+const PAYMENT_TIMEOUT_MINUTES = 1440; // 24 hours
 
 /**
  * POST /api/orders
