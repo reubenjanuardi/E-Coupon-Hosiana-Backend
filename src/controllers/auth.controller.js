@@ -37,6 +37,7 @@ export async function login(req, res) {
             secure: process.env.NODE_ENV === "production", // True in production
             sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // "none" for cross-site in production
             maxAge: 24 * 60 * 60 * 1000, // 24 hours
+            path: "/",
         });
 
         res.json({ message: "Login successful", user: { username: user.username, role: user.role } });
@@ -65,8 +66,13 @@ export async function logout(req, res) {
             }
         }
 
-        // 3. Clear cookie
-        res.clearCookie("token");
+        // 3. Clear cookie - must pass same options as when setting the cookie
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            path: "/",
+        });
 
         res.json({ message: "Logout successful" });
     } catch (error) {
