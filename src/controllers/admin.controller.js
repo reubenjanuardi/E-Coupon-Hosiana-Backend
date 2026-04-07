@@ -50,7 +50,7 @@ export async function getDashboardStats(req, res) {
 // GET /api/admin/orders
 export async function getAllOrders(req, res) {
   try {
-    const { page = 1, limit = 10, status, search, sort = 'desc' } = req.query;
+    const { page = 1, limit = 10, status, search, sort = 'desc', origin } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
@@ -59,6 +59,9 @@ export async function getAllOrders(req, res) {
       // If frontend sends 'all' or empty, we don't query status.
       // User requirement says "filter".
       where.status = status;
+    }
+    if (origin) {
+      where.customer = { asalPembeli: origin };
     }
     if (search) {
       where.OR = [
