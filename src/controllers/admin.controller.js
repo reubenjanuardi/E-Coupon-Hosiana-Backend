@@ -339,7 +339,8 @@ Order ID: ${order.orderId}
 Jumlah Buku: ${count}
 Kode Buku: ${bookCodes || '-'}
 
-Silakan dicek lampiran PDF berikut.`;
+Silakan dicek lampiran PDF berikut.
+Pengundian akan dilakukan pada Minggu, 7 Juni 2026 pukul 11.00 WIB`;
 
     res.json({
       data: {
