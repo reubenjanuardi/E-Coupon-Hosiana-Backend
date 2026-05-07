@@ -85,15 +85,13 @@ export async function verifyCoupon(req, res) {
       const customer = book.order.customer;
       const maskedOwner = maskOwnerInfo(customer.namaLengkap, customer.nomorWhatsApp);
 
-      // Determine verification status:
-      // Valid: Order is verified (fully paid/approved)
-      // Pending: Order exists but not verified yet
-      const bookStatus = book.order.status === "verified" ? "valid" : "pending";
+      // Determine verification status from order status
+      const bookStatus = book.order.status;
 
       return res.json({
         type: "BOOK",
         code: book.bookCode,
-        status: bookStatus, // "valid", "pending"
+        status: bookStatus, // e.g. "pending payment", "pending verification", "verified", "merge", "sent"
         bookCode: book.bookCode,
         owner: maskedOwner,
       });
@@ -130,12 +128,12 @@ export async function verifyCoupon(req, res) {
       const maskedOwner = maskOwnerInfo(customer.namaLengkap, customer.nomorWhatsApp);
 
       // Determine status from Order status
-      const couponStatus = coupon.couponBook.order.status === "verified" ? "valid" : "pending";
+      const couponStatus = coupon.couponBook.order.status;
 
       return res.json({
         type: "COUPON",
         code: coupon.couponCode,
-        status: couponStatus, // "valid", "pending"
+        status: couponStatus, // e.g. "pending payment", "pending verification", "verified", "merge", "sent"
         bookCode: coupon.couponBook.bookCode,
         owner: maskedOwner,
       });

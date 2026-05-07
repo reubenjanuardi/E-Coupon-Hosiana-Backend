@@ -5,32 +5,27 @@ import { mergePdfs } from "../services/pdfService.js";
 // GET /api/admin/stats
 export async function getDashboardStats(req, res) {
   try {
-    const [
-      availableBooks,
-      soldBooksAgg,
-      pendingVerificationOrders,
-      pendingPaymentOrders
-    ] = await Promise.all([
+    const [availableBooks, soldBooksAgg, pendingVerificationOrders, pendingPaymentOrders] = await Promise.all([
       // 1. Available Books (not assigned to any order)
       prisma.couponBook.count({
-        where: { orderId: null }
+        where: { orderId: null },
       }),
       // 2. Sold Books (Sum of bookCount from orders that are Verified, Merged, or Sent)
       // OPTIMIZATION: Use aggregate on Order table instead of counting CouponBooks with join
       prisma.order.aggregate({
         _sum: { bookCount: true },
         where: {
-          status: { in: ['verified', 'MERGED', 'SENT'] }
-        }
+          status: { in: ["verified", "MERGED", "SENT"] },
+        },
       }),
       // 3. Pending Verification Orders
       prisma.order.count({
-        where: { status: 'pending_verification' }
+        where: { status: "pending_verification" },
       }),
       // 4. Pending Payment Orders
       prisma.order.count({
-        where: { status: 'pending_payment' }
-      })
+        where: { status: "pending_payment" },
+      }),
     ]);
 
     res.json({
@@ -38,8 +33,8 @@ export async function getDashboardStats(req, res) {
         availableBooks,
         soldBooks: soldBooksAgg._sum.bookCount || 0, // Handle null result if no orders match
         pendingVerificationOrders,
-        pendingPaymentOrders
-      }
+        pendingPaymentOrders,
+      },
     });
   } catch (error) {
     console.error("getDashboardStats error:", error);
@@ -50,12 +45,13 @@ export async function getDashboardStats(req, res) {
 // GET /api/admin/orders
 export async function getAllOrders(req, res) {
   try {
-    const { page = 1, limit = 10, status, search, sort = 'desc', origin } = req.query;
+    const { page = 1, limit = 10, status, search, sort = "desc", origin } = req.query;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
     const where = {};
-    if (status) { // Expecting comma separated or single status, usually single for filter
+    if (status) {
+      // Expecting comma separated or single status, usually single for filter
       // If frontend sends 'all' or empty, we don't query status.
       // User requirement says "filter".
       where.status = status;
@@ -65,10 +61,10 @@ export async function getAllOrders(req, res) {
     }
     if (search) {
       where.OR = [
-        { orderId: { contains: search, mode: 'insensitive' } },
+        { orderId: { contains: search, mode: "insensitive" } },
         // Prisma relation filtering for search
-        { customer: { namaLengkap: { contains: search, mode: 'insensitive' } } },
-        { customer: { nomorWhatsApp: { contains: search, mode: 'insensitive' } } }
+        { customer: { namaLengkap: { contains: search, mode: "insensitive" } } },
+        { customer: { nomorWhatsApp: { contains: search, mode: "insensitive" } } },
       ];
     }
 
@@ -77,18 +73,18 @@ export async function getAllOrders(req, res) {
         where,
         skip,
         take,
-        orderBy: { createdAt: sort === 'asc' ? 'asc' : 'desc' },
+        orderBy: { createdAt: sort === "asc" ? "asc" : "desc" },
         include: {
           customer: {
             include: {
               wilayah: true,
-              gereja: true
-            }
+              gereja: true,
+            },
           },
-          payments: true
-        }
+          payments: true,
+        },
       }),
-      prisma.order.count({ where })
+      prisma.order.count({ where }),
     ]);
 
     res.json({
@@ -97,8 +93,8 @@ export async function getAllOrders(req, res) {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        totalPages: Math.ceil(total / take)
-      }
+        totalPages: Math.ceil(total / take),
+      },
     });
   } catch (error) {
     console.error("getAllOrders error:", error);
@@ -116,12 +112,12 @@ export async function getOrderById(req, res) {
         customer: {
           include: {
             wilayah: true,
-            gereja: true
-          }
+            gereja: true,
+          },
         },
         payments: true,
-        couponBooks: true
-      }
+        couponBooks: true,
+      },
     });
 
     if (!order) {
@@ -142,13 +138,13 @@ export async function verifyOrder(req, res) {
 
     const order = await prisma.order.findUnique({ where: { orderId } });
     if (!order) return res.status(404).json({ message: "Order not found" });
-    if (order.status !== 'pending_verification') {
+    if (order.status !== "pending_verification") {
       return res.status(400).json({ message: "Order cannot be verified (invalid status)" });
     }
 
     const updatedOrder = await prisma.order.update({
       where: { orderId },
-      data: { status: "verified" }
+      data: { status: "verified" },
     });
 
     res.json({ message: "Order verified successfully", data: updatedOrder });
@@ -169,14 +165,14 @@ export async function rejectOrder(req, res) {
       if (!order) throw new Error("Order not found");
 
       // Allow rejection if pending_payment or pending_verification
-      if (!['pending_payment', 'pending_verification'].includes(order.status)) {
+      if (!["pending_payment", "pending_verification"].includes(order.status)) {
         throw new Error("Order cannot be rejected (invalid status)");
       }
 
       // 1. Update Order Status
       await tx.order.update({
         where: { orderId },
-        data: { status: 'cancelled' }
+        data: { status: "cancelled" },
       });
 
       // 2. Release Books (unlink orderId)
@@ -184,8 +180,8 @@ export async function rejectOrder(req, res) {
         where: { orderId },
         data: {
           orderId: null,
-          assignedAt: null
-        }
+          assignedAt: null,
+        },
       });
     });
 
@@ -205,8 +201,8 @@ export async function mergeOrderPdfs(req, res) {
     const order = await prisma.order.findUnique({
       where: { orderId },
       include: {
-        couponBooks: true
-      }
+        couponBooks: true,
+      },
     });
 
     if (!order) {
@@ -215,7 +211,7 @@ export async function mergeOrderPdfs(req, res) {
 
     // 2. Validate Order Status (Verified = Paid)
     // "Assume the order is already validated as PAID" - Enforcing verified for safety
-    if (order.status !== 'verified') {
+    if (order.status !== "verified") {
       return res.status(400).json({ message: "Order must be verified to merge PDFs" });
     }
 
@@ -224,9 +220,7 @@ export async function mergeOrderPdfs(req, res) {
     }
 
     // 3. Sort CouponBooks by bookCode
-    const sortedBooks = order.couponBooks.sort((a, b) => 
-      a.bookCode.localeCompare(b.bookCode)
-    );
+    const sortedBooks = order.couponBooks.sort((a, b) => a.bookCode.localeCompare(b.bookCode));
 
     const pdfBuffers = [];
 
@@ -246,7 +240,7 @@ export async function mergeOrderPdfs(req, res) {
 
     // 5. Merge PDFs
     if (pdfBuffers.length === 0) {
-        return res.status(400).json({ message: "No PDFs found to merge" });
+      return res.status(400).json({ message: "No PDFs found to merge" });
     }
 
     const mergedPdfBuffer = await mergePdfs(pdfBuffers);
@@ -255,16 +249,15 @@ export async function mergeOrderPdfs(req, res) {
     await prisma.order.update({
       where: { orderId },
       data: {
-        status: 'MERGED',
-        mergedAt: new Date()
-      }
+        status: "MERGED",
+        mergedAt: new Date(),
+      },
     });
 
     // 7. Return Response
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="merged-order-${orderId}.pdf"`);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="merged-order-${orderId}.pdf"`);
     res.send(mergedPdfBuffer);
-
   } catch (error) {
     console.error("mergeOrderPdfs error:", error);
     res.status(500).json({ message: "Failed to merge PDFs" });
@@ -280,16 +273,16 @@ export async function markOrderSent(req, res) {
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     // Ensure strict flow: MERGED -> SENT
-    if (order.status !== 'MERGED') {
+    if (order.status !== "MERGED") {
       return res.status(400).json({ message: "Order must be in MERGED status to be marked as SENT" });
     }
 
     const updatedOrder = await prisma.order.update({
       where: { orderId },
       data: {
-        status: 'SENT',
-        sentAt: new Date()
-      }
+        status: "SENT",
+        sentAt: new Date(),
+      },
     });
 
     res.json({ message: "Order marked as SENT", data: updatedOrder });
@@ -310,11 +303,11 @@ export async function getWhatsAppMessage(req, res) {
         customer: {
           include: {
             gereja: true,
-            wilayah: true
-          }
+            wilayah: true,
+          },
         },
-        couponBooks: true
-      }
+        couponBooks: true,
+      },
     });
 
     if (!order) return res.status(404).json({ message: "Order not found" });
@@ -322,10 +315,10 @@ export async function getWhatsAppMessage(req, res) {
 
     const customer = order.customer;
     const books = order.couponBooks || [];
-    
+
     // Sort books
     const sortedBooks = books.sort((a, b) => a.bookCode.localeCompare(b.bookCode));
-    const bookCodes = sortedBooks.map(b => b.bookCode).join(', ');
+    const bookCodes = sortedBooks.map((b) => b.bookCode).join(", ");
     const count = sortedBooks.length;
 
     // Construct Message
@@ -337,19 +330,16 @@ Berikut adalah E-Coupon/Buku Kupon digital Anda:
 
 Order ID: ${order.orderId}
 Jumlah Buku: ${count}
-Kode Buku: ${bookCodes || '-'}
+Kode Buku: ${bookCodes || "-"}
 
-Silakan dicek lampiran PDF berikut.
-Pengundian akan dilakukan pada Minggu, 7 Juni 2026 pukul 11.00 WIB`;
+Silakan dicek lampiran PDF berikut.`;
 
     res.json({
       data: {
         phoneNumber: customer.nomorWhatsApp, // Frontend can sanitize this if needed
-        message: message
-      }
+        message: message,
+      },
     });
-
-
   } catch (error) {
     console.error("getWhatsAppMessage error:", error);
     res.status(500).json({ message: "Failed to generate WhatsApp message" });
@@ -359,80 +349,80 @@ Pengundian akan dilakukan pada Minggu, 7 Juni 2026 pukul 11.00 WIB`;
 // POST /api/admin/orders
 export async function createOrder(req, res) {
   try {
-    const { 
-        customerName, 
-        customerWhatsApp, 
-        asalPembeli, // 'GPIB' or 'UMUM'
-        wilayahId, 
-        gerejaId, 
-        bookCount,
-        selectedBooks, // Array of bookCodes to assign
-        totalAmount, 
-        uniqueCode, 
-        payabyleAmount 
+    const {
+      customerName,
+      customerWhatsApp,
+      asalPembeli, // 'GPIB' or 'UMUM'
+      wilayahId,
+      gerejaId,
+      bookCount,
+      selectedBooks, // Array of bookCodes to assign
+      totalAmount,
+      uniqueCode,
+      payabyleAmount,
     } = req.body;
 
     // Validate Status Enum (Validating input is good practice)
-    if (!['GPIB', 'UMUM'].includes(asalPembeli)) {
-         return res.status(400).json({ message: "Invalid asalPembeli. Must be GPIB or UMUM" });
+    if (!["GPIB", "UMUM"].includes(asalPembeli)) {
+      return res.status(400).json({ message: "Invalid asalPembeli. Must be GPIB or UMUM" });
     }
 
     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     const result = await prisma.$transaction(async (tx) => {
-        const finalBookCount = selectedBooks?.length ?? parseInt(bookCount) ?? 1;
+      const finalBookCount = selectedBooks?.length ?? parseInt(bookCount) ?? 1;
 
-        // If specific books were selected, verify they are available first
-        if (selectedBooks && selectedBooks.length > 0) {
-            const available = await tx.couponBook.findMany({
-                where: {
-                    bookCode: { in: selectedBooks },
-                    orderId: null,
-                },
-                select: { bookCode: true },
-            });
-
-            if (available.length !== selectedBooks.length) {
-                throw new Error(`Some books are already assigned or not found. Available: ${available.length}/${selectedBooks.length}`);
-            }
-        }
-
-        // 1. Create Order
-        const newOrder = await tx.order.create({
-            data: {
-                orderId,
-                bookCount: finalBookCount,
-                totalAmount: parseInt(totalAmount),
-                uniqueCode: parseInt(uniqueCode) || 0,
-                payabyleAmount: parseInt(payabyleAmount),
-                status: 'verified', // Admin-created orders are immediately verified
-                customer: {
-                    create: {
-                        namaLengkap: customerName,
-                        nomorWhatsApp: customerWhatsApp,
-                        asalPembeli,
-                        wilayahId: wilayahId ? parseInt(wilayahId) : null,
-                        gerejaId: gerejaId ? parseInt(gerejaId) : null
-                    }
-                }
-            },
-            include: {
-                customer: true
-            }
+      // If specific books were selected, verify they are available first
+      if (selectedBooks && selectedBooks.length > 0) {
+        const available = await tx.couponBook.findMany({
+          where: {
+            bookCode: { in: selectedBooks },
+            orderId: null,
+          },
+          select: { bookCode: true },
         });
 
-        // 2. Assign selected books to the order
-        if (selectedBooks && selectedBooks.length > 0) {
-            await tx.couponBook.updateMany({
-                where: { bookCode: { in: selectedBooks }, orderId: null },
-                data: {
-                    orderId: newOrder.orderId,
-                    assignedAt: new Date(),
-                }
-            });
+        if (available.length !== selectedBooks.length) {
+          throw new Error(`Some books are already assigned or not found. Available: ${available.length}/${selectedBooks.length}`);
         }
+      }
 
-        return newOrder;
+      // 1. Create Order
+      const newOrder = await tx.order.create({
+        data: {
+          orderId,
+          bookCount: finalBookCount,
+          totalAmount: parseInt(totalAmount),
+          uniqueCode: parseInt(uniqueCode) || 0,
+          payabyleAmount: parseInt(payabyleAmount),
+          status: "verified", // Admin-created orders are immediately verified
+          customer: {
+            create: {
+              namaLengkap: customerName,
+              nomorWhatsApp: customerWhatsApp,
+              asalPembeli,
+              wilayahId: wilayahId ? parseInt(wilayahId) : null,
+              gerejaId: gerejaId ? parseInt(gerejaId) : null,
+            },
+          },
+        },
+        include: {
+          customer: true,
+        },
+      });
+
+      // 2. Assign selected books to the order
+      if (selectedBooks && selectedBooks.length > 0) {
+        await tx.couponBook.updateMany({
+          where: { bookCode: { in: selectedBooks }, orderId: null },
+          data: {
+            orderId: newOrder.orderId,
+            assignedAt: new Date(),
+          },
+        });
+      }
+
+      return newOrder;
     });
 
     res.status(201).json({ message: "Order created successfully", data: result });
@@ -446,11 +436,11 @@ export async function createOrder(req, res) {
 export async function updateOrder(req, res) {
   try {
     const { orderId } = req.params;
-    const { 
-        customerName, 
-        customerWhatsApp,
-        status,
-        // Add other fields as needed
+    const {
+      customerName,
+      customerWhatsApp,
+      status,
+      // Add other fields as needed
     } = req.body;
 
     const dataToUpdate = {};
@@ -461,17 +451,17 @@ export async function updateOrder(req, res) {
     if (customerWhatsApp) customerDataToUpdate.nomorWhatsApp = customerWhatsApp;
 
     if (req.body.isChurchOrder !== undefined) {
-        dataToUpdate.isChurchOrder = req.body.isChurchOrder;
+      dataToUpdate.isChurchOrder = req.body.isChurchOrder;
     }
 
     await prisma.order.update({
-        where: { orderId },
-        data: {
-            ...dataToUpdate,
-            customer: {
-                update: customerDataToUpdate
-            }
-        }
+      where: { orderId },
+      data: {
+        ...dataToUpdate,
+        customer: {
+          update: customerDataToUpdate,
+        },
+      },
     });
 
     res.json({ message: "Order updated successfully" });
@@ -491,7 +481,7 @@ export async function toggleChurchOrder(req, res) {
 
     const updatedOrder = await prisma.order.update({
       where: { orderId },
-      data: { isChurchOrder: !order.isChurchOrder }
+      data: { isChurchOrder: !order.isChurchOrder },
     });
 
     res.json({ message: "Order church status toggled", data: updatedOrder });
@@ -506,40 +496,40 @@ export async function deleteOrder(req, res) {
   try {
     const { orderId } = req.params;
 
-    // Use transaction to delete related records first if necessary, 
+    // Use transaction to delete related records first if necessary,
     // but Prisma cascading deletion might handle it if configured.
     // Looking at schema, dependencies are:
     // OrderCustomer (relation permissions?)
     // PaymentEvidence (relation?)
     // CouponBook (relation?)
 
-    // Let's check schema again? 
+    // Let's check schema again?
     // CouponBook has `order Order?`. Deleting order might fail if not set to SetNull or Cascade.
     // OrderCustomer has `order Order`.
-    
+
     // Safer to delete/detach in transaction.
-    
+
     await prisma.$transaction(async (tx) => {
-        // 1. Unlink CouponBooks
-        await tx.couponBook.updateMany({
-            where: { orderId },
-            data: { orderId: null, assignedAt: null }
-        });
+      // 1. Unlink CouponBooks
+      await tx.couponBook.updateMany({
+        where: { orderId },
+        data: { orderId: null, assignedAt: null },
+      });
 
-        // 2. Delete Payment Evidence
-        await tx.paymentEvidence.deleteMany({
-            where: { orderId }
-        });
+      // 2. Delete Payment Evidence
+      await tx.paymentEvidence.deleteMany({
+        where: { orderId },
+      });
 
-        // 3. Delete Customer
-        await tx.orderCustomer.deleteMany({
-            where: { orderId }
-        });
+      // 3. Delete Customer
+      await tx.orderCustomer.deleteMany({
+        where: { orderId },
+      });
 
-        // 4. Delete Order
-        await tx.order.delete({
-            where: { orderId }
-        });
+      // 4. Delete Order
+      await tx.order.delete({
+        where: { orderId },
+      });
     });
 
     res.json({ message: "Order deleted successfully" });
